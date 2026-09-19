@@ -175,13 +175,6 @@ export default function TransactionsPage() {
           className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          CSV Ekle
-        </button>
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
           Yeni İşlem Ekle
         </button>
       </div>
@@ -350,7 +343,7 @@ export default function TransactionsPage() {
         initialTab="EXPENSE"
         transactionToEdit={editingTransaction}
       />
-      <CsvImportButton accountId={selectedAccount} />
+      <CsvImportButton accountId="2242c863-6fa0-4027-b62d-61665c01750f" />
     </div>
   );
 }
