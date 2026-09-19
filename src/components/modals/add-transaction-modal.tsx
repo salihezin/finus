@@ -128,64 +128,46 @@ export function AddTransactionModal({
     setLoading(true);
 
     try {
-      // 1. İşlem Kaydını Ekle
-      const transactionPayload: any = {
-        type: activeTab,
-        amount: numericAmount,
-        account_id: accountId,
-        category_id: activeTab === "TRANSFER" ? null : categoryId || null,
-        person_id: activeTab === "TRANSFER" ? null : personId || null,
-        description: description || null,
-        date: date,
-      };
+      if (transactionToEdit && transactionToEdit.id) {
+        // 1. GÜNCELLEME İŞLEMİ (UPDATE)
+        const { error } = await supabase
+          .from("transactions")
+          .update({
+            type: activeTab,
+            amount: Number(amount),
+            description: description || null,
+            date: date,
+            account_id: accountId,
+            category_id: categoryId || null,
+            to_account_id: toAccountId || null,
+          })
+          .eq("id", transactionToEdit.id);
 
-      if (activeTab === "TRANSFER") {
-        transactionPayload.to_account_id = toAccountId;
+        if (error) throw error;
+      } else {
+        // 2. YENİ EKLEME İŞLEMİ (INSERT)
+        const { error } = await supabase
+          .from("transactions")
+          .insert([
+            {
+              type: activeTab,
+              amount: Number(amount),
+              description: description || null,
+              date: date,
+              account_id: accountId,
+              category_id: categoryId || null,
+              to_account_id: toAccountId || null,
+            },
+          ]);
+
+        if (error) throw error;
       }
 
-      const { error: txError } = await supabase
-        .from("transactions")
-        .insert([transactionPayload]);
-
-      if (txError) throw txError;
-
-      // 2. Hesap Bakiyelerini Güncelle
-      const sourceAccount = accounts.find((a) => a.id === accountId);
-      if (!sourceAccount) throw new Error("Hesap bulunamadı.");
-
-      let newSourceBalance = Number(sourceAccount.balance);
-
-      if (activeTab === "EXPENSE") {
-        newSourceBalance -= numericAmount;
-      } else if (activeTab === "INCOME") {
-        newSourceBalance += numericAmount;
-      } else if (activeTab === "TRANSFER") {
-        newSourceBalance -= numericAmount;
-
-        const targetAccount = accounts.find((a) => a.id === toAccountId);
-        if (targetAccount) {
-          const newTargetBalance = Number(targetAccount.balance) + numericAmount;
-          await supabase
-            .from("accounts")
-            .update({ balance: newTargetBalance })
-            .eq("id", toAccountId);
-        }
-      }
-
-      await supabase
-        .from("accounts")
-        .update({ balance: newSourceBalance })
-        .eq("id", accountId);
-
-      // Formu sıfırla ve kapat
-      setAmount("");
-      setDescription("");
-      setPersonId("");
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error("İşlem eklenirken hata:", err);
-      alert("İşlem kaydedilemedi: " + (err.message || "Bilinmeyen hata"));
+      console.error("Kayıt sırasında hata:", err);
+      alert("İşlem başarısız: " + (err.message || "Bilinmeyen hata"));
     } finally {
       setLoading(false);
     }
