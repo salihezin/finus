@@ -29,7 +29,7 @@ export async function importVakifBankCSV(csvText: string, accountId: string): Pr
       const tutarStr = cols[3]?.trim().replace(".", "").replace(",", "."); // Örn: "34952,74" -> "34952.74"
 
       let tutar = parseFloat(tutarStr);
-      if (isNaN(tutar)) continue;
+      if (isNaN(tutar) || tutar <= 0) continue;
 
       // Tarih formatını ISO'ya çevirelim (DD.MM.YYYY -> YYYY-MM-DD)
       let formattedDate = new Date().toISOString().split("T")[0];
