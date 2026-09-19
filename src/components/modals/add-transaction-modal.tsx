@@ -139,7 +139,7 @@ export function AddTransactionModal({
             date: date,
             account_id: accountId,
             category_id: categoryId || null,
-            to_account_id: toAccountId || null,
+            target_account_id: toAccountId || null,
           })
           .eq("id", transactionToEdit.id);
 
@@ -156,7 +156,7 @@ export function AddTransactionModal({
               date: date,
               account_id: accountId,
               category_id: categoryId || null,
-              to_account_id: toAccountId || null,
+              target_account_id: toAccountId || null,
             },
           ]);
 
