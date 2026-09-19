@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { X, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from "lucide-react";
+import { X, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, User } from "lucide-react";
 
 interface Account {
   id: string;
@@ -16,31 +16,36 @@ interface Category {
   type: "EXPENSE" | "INCOME";
 }
 
+interface Person {
+  id: string;
+  name: string;
+}
+
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  initialTab: "EXPENSE" | "INCOME" | "TRANSFER" | "DEBT";
 }
 
 export function AddTransactionModal({
   isOpen,
   onClose,
   onSuccess,
-  initialTab,
-}: Readonly<AddTransactionModalProps>) {
+}: AddTransactionModalProps) {
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<"EXPENSE" | "INCOME" | "TRANSFER" | "DEBT">(initialTab);
+  const [activeTab, setActiveTab] = useState<"EXPENSE" | "INCOME" | "TRANSFER">("EXPENSE");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [persons, setPersons] = useState<Person[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Form State'leri
   const [amount, setAmount] = useState("");
   const [accountId, setAccountId] = useState("");
-  const [toAccountId, setToAccountId] = useState(""); // Virman için alıcı hesap
+  const [toAccountId, setToAccountId] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [personId, setPersonId] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
@@ -52,9 +57,10 @@ export function AddTransactionModal({
 
   const fetchFormData = async () => {
     try {
-      const [accRes, catRes] = await Promise.all([
+      const [accRes, catRes, perRes] = await Promise.all([
         supabase.from("accounts").select("id, name, balance").order("name"),
         supabase.from("categories").select("id, name, type").order("name"),
+        supabase.from("persons").select("id, name").order("name"),
       ]);
 
       if (accRes.data) {
@@ -70,6 +76,10 @@ export function AddTransactionModal({
       if (catRes.data) {
         setCategories(catRes.data);
       }
+
+      if (perRes.data) {
+        setPersons(perRes.data);
+      }
     } catch (err) {
       console.error("Modal verileri yüklenirken hata:", err);
     }
@@ -77,12 +87,11 @@ export function AddTransactionModal({
 
   if (!isOpen) return null;
 
-  // Aktif sekmeye göre kategorileri filtrele
   const filteredCategories = categories.filter((c) => c.type === activeTab);
 
-  const handleSubmit = async (e: React.SubmitEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numericAmount = Number.parseFloat(amount);
+    const numericAmount = parseFloat(amount);
 
     if (!numericAmount || numericAmount <= 0) {
       alert("Lütfen geçerli bir tutar girin.");
@@ -108,6 +117,7 @@ export function AddTransactionModal({
         amount: numericAmount,
         account_id: accountId,
         category_id: activeTab === "TRANSFER" ? null : categoryId || null,
+        person_id: activeTab === "TRANSFER" ? null : personId || null,
         description: description || null,
         date: date,
       };
@@ -135,7 +145,6 @@ export function AddTransactionModal({
       } else if (activeTab === "TRANSFER") {
         newSourceBalance -= numericAmount;
 
-        // Hedef hesabı güncelle
         const targetAccount = accounts.find((a) => a.id === toAccountId);
         if (targetAccount) {
           const newTargetBalance = Number(targetAccount.balance) + numericAmount;
@@ -146,7 +155,6 @@ export function AddTransactionModal({
         }
       }
 
-      // Kaynak hesabı güncelle
       await supabase
         .from("accounts")
         .update({ balance: newSourceBalance })
@@ -155,6 +163,7 @@ export function AddTransactionModal({
       // Formu sıfırla ve kapat
       setAmount("");
       setDescription("");
+      setPersonId("");
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -218,6 +227,7 @@ export function AddTransactionModal({
             onClick={() => {
               setActiveTab("TRANSFER");
               setCategoryId("");
+              setPersonId("");
             }}
             className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all ${
               activeTab === "TRANSFER"
@@ -268,7 +278,6 @@ export function AddTransactionModal({
               </select>
             </div>
 
-            {/* Virman için Hedef Hesap */}
             {activeTab === "TRANSFER" ? (
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">
@@ -288,7 +297,6 @@ export function AddTransactionModal({
                 </select>
               </div>
             ) : (
-              /* Kategori Seçimi (Gelir / Gider için) */
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">
                   Kategori
@@ -308,6 +316,27 @@ export function AddTransactionModal({
               </div>
             )}
           </div>
+
+          {/* Kişi Seçimi (Sadece Gelir / Gider için) */}
+          {activeTab !== "TRANSFER" && (
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                İlgili Kişi (Borç / Alacak için)
+              </label>
+              <select
+                value={personId}
+                onChange={(e) => setPersonId(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-indigo-500 text-sm"
+              >
+                <option value="">Kişi Seçin (İsteğe Bağlı)</option>
+                {persons.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Tarih & Açıklama */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -330,7 +359,7 @@ export function AddTransactionModal({
               </label>
               <input
                 type="text"
-                placeholder="Örn: Market alışverişi"
+                placeholder="Örn: Borç verme / Tahsilat"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 text-sm"
