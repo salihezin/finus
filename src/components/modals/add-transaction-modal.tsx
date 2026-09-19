@@ -63,11 +63,25 @@ export function AddTransactionModal({
   useEffect(() => {
     if (isOpen) {
       if (transactionToEdit) {
-        setActiveTab(transactionToEdit.type);
-        setAmount(transactionToEdit.amount.toString());
+        setActiveTab(transactionToEdit.type || "EXPENSE");
+        setAmount(transactionToEdit.amount?.toString() || "");
+        setAccountId(transactionToEdit.account_id || "");
+        setToAccountId(transactionToEdit.target_account_id || "");
+        setCategoryId(transactionToEdit.category_id || "");
+        setPersonId(transactionToEdit.person_id || "");
+        setDescription(transactionToEdit.description || "");
+        
+        // Tarih formatını 'YYYY-MM-DD' standardına çevirerek set edelim
+        if (transactionToEdit.date) {
+          setDate(transactionToEdit.date.split("T")[0]);
+        }
       } else {
         setActiveTab(initialTab || "EXPENSE");
         setAmount("");
+        setCategoryId("");
+        setPersonId("");
+        setDescription("");
+        setDate(new Date().toISOString().split("T")[0]);
       }
     }
   }, [isOpen, transactionToEdit, initialTab]);
