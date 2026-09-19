@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Users, Plus, Trash2, Edit2, Phone, Wallet, X, FileText } from "lucide-react";
+import { Users, Plus, Trash2, Edit2, Phone, Wallet, X, FileText, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+
+interface Transaction {
+  type: "EXPENSE" | "INCOME" | "TRANSFER";
+  amount: number;
+}
 
 interface Person {
   id: string;
@@ -10,6 +15,7 @@ interface Person {
   phone: string | null;
   notes: string | null;
   created_at: string;
+  transactions?: Transaction[];
 }
 
 export default function PersonsPage() {
@@ -33,9 +39,16 @@ export default function PersonsPage() {
   const fetchPersons = async () => {
     setLoading(true);
     try {
+      // Kişileri ve ilişkili işlemleri çekiyoruz
       const { data, error } = await supabase
         .from("persons")
-        .select("*")
+        .select(`
+          *,
+          transactions (
+            type,
+            amount
+          )
+        `)
         .order("name");
 
       if (error) throw error;
@@ -103,6 +116,22 @@ export default function PersonsPage() {
     }
   };
 
+  // Kişinin net bakiyesini hesaplayan yardımcı fonksiyon
+  const calculateBalance = (transactions?: Transaction[]) => {
+    if (!transactions) return 0;
+    let balance = 0;
+    transactions.forEach((tx) => {
+      // Gider (EXPENSE) -> Kişiye para verildi (Alacak artar)
+      // Gelir (INCOME) -> Kişiden para alındı / Ödeme yapıldı (Borç/Alacak kapanır)
+      if (tx.type === "EXPENSE") {
+        balance += Number(tx.amount);
+      } else if (tx.type === "INCOME") {
+        balance -= Number(tx.amount);
+      }
+    });
+    return balance;
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6 text-slate-100">
       {/* Header */}
@@ -110,7 +139,7 @@ export default function PersonsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Kişiler</h1>
           <p className="text-sm text-slate-400">
-            Borç, alacak ilişkisinde olduğunuz kişileri ve iletişim bilgilerini yönetin.
+            Borç, alacak ilişkisinde olduğunuz kişileri ve güncel bakiyelerini yönetin.
           </p>
         </div>
 
@@ -138,60 +167,82 @@ export default function PersonsPage() {
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-medium">
                   <th className="p-4">Ad Soyad</th>
                   <th className="p-4">Telefon</th>
+                  <th className="p-4">Bakiye Durumu</th>
                   <th className="p-4">Notlar</th>
                   <th className="p-4 text-center">Aksiyonlar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {persons.map((person) => (
-                  <tr
-                    key={person.id}
-                    className="hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="p-4 font-semibold text-slate-200">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 font-bold text-xs">
-                          {person.name.substring(0, 2).toUpperCase()}
+                {persons.map((person) => {
+                  const balance = calculateBalance(person.transactions);
+                  return (
+                    <tr
+                      key={person.id}
+                      className="hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="p-4 font-semibold text-slate-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 font-bold text-xs">
+                            {person.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          {person.name}
                         </div>
-                        {person.name}
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="p-4 text-slate-300">
-                      {person.phone ? (
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <Phone className="w-3.5 h-3.5 text-slate-500" />
-                          {person.phone}
+                      <td className="p-4 text-slate-300">
+                        {person.phone ? (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Phone className="w-3.5 h-3.5 text-slate-500" />
+                            {person.phone}
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">-</span>
+                        )}
+                      </td>
+
+                      <td className="p-4 font-medium">
+                        {balance > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                            Alacaklısınız: {balance.toLocaleString("tr-TR")} ₺
+                          </span>
+                        ) : balance < 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-semibold">
+                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                            Borçlusunuz: {Math.abs(balance).toLocaleString("tr-TR")} ₺
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 text-xs font-normal">
+                            Hesap Kapalı (0 ₺)
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-slate-400 max-w-xs truncate">
+                        {person.notes || <span className="text-slate-600">-</span>}
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handleOpenModal(person)}
+                            className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all cursor-pointer"
+                            title="Düzenle"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(person.id)}
+                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      ) : (
-                        <span className="text-slate-600">-</span>
-                      )}
-                    </td>
-
-                    <td className="p-4 text-slate-400 max-w-xs truncate">
-                      {person.notes || <span className="text-slate-600">-</span>}
-                    </td>
-
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleOpenModal(person)}
-                          className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all cursor-pointer"
-                          title="Düzenle"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(person.id)}
-                          className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
-                          title="Sil"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
