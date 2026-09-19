@@ -25,6 +25,7 @@ interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialTab?: "EXPENSE" | "INCOME" | "TRANSFER" | "DEBT";
 }
 
 export function AddTransactionModal({
