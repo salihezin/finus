@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { X, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, User } from "lucide-react";
+import { Transaction } from "@/types/database";
 
 interface Account {
   id: string;
@@ -26,16 +27,19 @@ interface AddTransactionModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialTab?: "EXPENSE" | "INCOME" | "TRANSFER" | "DEBT";
+  transactionToEdit?: any;
 }
 
 export function AddTransactionModal({
   isOpen,
   onClose,
   onSuccess,
+  initialTab = "EXPENSE",
+  transactionToEdit = null
 }: AddTransactionModalProps) {
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<"EXPENSE" | "INCOME" | "TRANSFER">("EXPENSE");
+  const [activeTab, setActiveTab] = useState<string>("EXPENSE");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
@@ -55,6 +59,18 @@ export function AddTransactionModal({
       fetchFormData();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (transactionToEdit) {
+        setActiveTab(transactionToEdit.type);
+        setAmount(transactionToEdit.amount.toString());
+      } else {
+        setActiveTab(initialTab || "EXPENSE");
+        setAmount("");
+      }
+    }
+  }, [isOpen, transactionToEdit, initialTab]);
 
   const fetchFormData = async () => {
     try {

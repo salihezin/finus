@@ -8,6 +8,7 @@ import {
   ArrowDownLeft, 
   ArrowLeftRight, 
   Trash2, 
+  Edit2,
   Calendar,
   Wallet,
   Tag,
@@ -34,12 +35,15 @@ interface Account {
 }
 
 export default function TransactionsPage() {
-  const supabase = createClient(); // Supabase istemcisi oluşturuldu
+  const supabase = createClient();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Filtre State'leri
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,12 +78,22 @@ export default function TransactionsPage() {
     }
    };
 
+  // Yeni Ekle veya Düzenle Modalını Aç
+  const handleOpenAddModal = () => {
+    setEditingTransaction(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setIsModalOpen(true);
+  };
+
   // İşlem Silme & Bakiye İadesi
   const handleDelete = async (tx: Transaction) => {
     if (!confirm("Bu işlemi silmek istediğinize emin misiniz? Bakiye geri ayarlanacaktır.")) return;
 
     try {
-      // 1. İlgili hesabın güncel bakiyesini çek
       const { data: accData, error: accErr } = await supabase
         .from("accounts")
         .select("balance")
@@ -90,7 +104,6 @@ export default function TransactionsPage() {
 
       let newBalance = Number(accData.balance);
 
-      // 2. Silinen işlemin türüne göre bakiyeyi tersine çevir
       if (tx.type === "EXPENSE") {
         newBalance += Number(tx.amount);
       } else if (tx.type === "INCOME") {
@@ -112,13 +125,11 @@ export default function TransactionsPage() {
         }
       }
 
-      // Ana hesabın bakiyesini güncelle
       await supabase
         .from("accounts")
         .update({ balance: newBalance })
         .eq("id", tx.account_id);
 
-      // 3. İşlem kaydını sil
       const { error: deleteErr } = await supabase
         .from("transactions")
         .delete()
@@ -126,7 +137,6 @@ export default function TransactionsPage() {
 
       if (deleteErr) throw deleteErr;
 
-      // State'i güncelle
       setTransactions((prev) => prev.filter((t) => t.id !== tx.id));
     } catch (err) {
       console.error("İşlem silinirken hata oluştu:", err);
@@ -160,7 +170,7 @@ export default function TransactionsPage() {
         </div>
 
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenAddModal}
           className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -170,7 +180,6 @@ export default function TransactionsPage() {
 
       {/* Arama & Filtreleme Barı */}
       <div className="bg-slate-900/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center shadow-lg">
-        {/* Arama Inputu */}
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -182,7 +191,6 @@ export default function TransactionsPage() {
           />
         </div>
 
-        {/* Filtre Dropdown'ları */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select
             value={selectedType}
@@ -299,13 +307,22 @@ export default function TransactionsPage() {
                       </td>
 
                       <td className="p-4 text-center">
-                        <button
-                          onClick={() => handleDelete(tx)}
-                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
-                          title="İşlemi Sil"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditModal(tx)}
+                            className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all cursor-pointer"
+                            title="İşlemi Düzenle"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(tx)}
+                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
+                            title="İşlemi Sil"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -315,13 +332,15 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
+
       <AddTransactionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
-          fetchData(); // Listeyi yeniden çek
+          fetchData();
         }}
         initialTab="EXPENSE"
+        transactionToEdit={editingTransaction}
       />
     </div>
   );
