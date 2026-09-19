@@ -12,7 +12,9 @@ import {
   Calendar,
   Wallet,
   Tag,
-  Plus
+  Plus,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import { AddTransactionModal } from "@/components/modals/add-transaction-modal";
 import CsvImportButton from "./components/CsvImportButton";
@@ -35,12 +37,23 @@ interface Account {
   name: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 export default function TransactionsPage() {
   const supabase = createClient();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Toplu Seçim State'leri
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [targetCategory, setTargetCategory] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Modal State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,26 +71,83 @@ export default function TransactionsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-        const [txRes, accRes] = await Promise.all([
-        supabase
-            .from("transactions")
-            .select(`
-            *,
-            accounts:accounts!transactions_account_id_fkey (name),
-            categories (name)
-            `)
-            .order("date", { ascending: false }),
-        supabase.from("accounts").select("id, name").order("name")
+        const [txRes, accRes, catRes] = await Promise.all([
+          supabase
+              .from("transactions")
+              .select(`
+              *,
+              accounts:accounts!transactions_account_id_fkey (name),
+              categories (name)
+              `)
+              .order("date", { ascending: false }),
+          supabase.from("accounts").select("id, name").order("name"),
+          supabase.from("categories").select("id, name").order("name")
         ]);
 
         if (txRes.data) setTransactions(txRes.data as any);
         if (accRes.data) setAccounts(accRes.data);
+        if (catRes.data) setCategories(catRes.data);
     } catch (err) {
         console.error("Veriler çekilirken hata oluştu:", err);
     } finally {
         setLoading(false);
     }
    };
+
+  // Filtrelenmiş liste
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((tx) => {
+      const matchesSearch = 
+        (tx.description && tx.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (tx.categories?.name && tx.categories.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchesType = selectedType === "ALL" || tx.type === selectedType;
+      const matchesAccount = selectedAccount === "ALL" || tx.account_id === selectedAccount;
+
+      return matchesSearch && matchesType && matchesAccount;
+    });
+  }, [transactions, searchQuery, selectedType, selectedAccount]);
+
+  // Tekil Checkbox Seçimi
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  // Tüm Filtrelenmişleri Seç / Kaldır
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredTransactions.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredTransactions.map(t => t.id));
+    }
+  };
+
+  // Toplu Kategori Güncelleme
+  const handleBulkCategoryUpdate = async () => {
+    if (!targetCategory || selectedIds.length === 0) return;
+
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ category_id: targetCategory })
+        .in("id", selectedIds);
+
+      if (error) throw error;
+
+      alert(`${selectedIds.length} adet işlemin kategorisi başarıyla güncellendi!`);
+      setSelectedIds([]);
+      setTargetCategory("");
+      await fetchData(); // Listeyi yenile
+    } catch (err: any) {
+      console.error("Toplu güncelleme hatası:", err);
+      alert("Güncelleme sırasında hata oluştu: " + err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   // Yeni Ekle veya Düzenle Modalını Aç
   const handleOpenAddModal = () => {
@@ -139,25 +209,12 @@ export default function TransactionsPage() {
       if (deleteErr) throw deleteErr;
 
       setTransactions((prev) => prev.filter((t) => t.id !== tx.id));
+      setSelectedIds((prev) => prev.filter((id) => id !== tx.id));
     } catch (err) {
       console.error("İşlem silinirken hata oluştu:", err);
       alert("İşlem silinemedi.");
     }
   };
-
-  // Filtrelenmiş liste
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx) => {
-      const matchesSearch = 
-        (tx.description && tx.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (tx.categories?.name && tx.categories.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesType = selectedType === "ALL" || tx.type === selectedType;
-      const matchesAccount = selectedAccount === "ALL" || tx.account_id === selectedAccount;
-
-      return matchesSearch && matchesType && matchesAccount;
-    });
-  }, [transactions, searchQuery, selectedType, selectedAccount]);
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6 text-slate-100">
@@ -170,17 +227,23 @@ export default function TransactionsPage() {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Yeni İşlem Ekle
-        </button>
+        <div className="flex items-center gap-3">
+          <CsvImportButton 
+            accountId="2242c863-6fa0-4027-b62d-61665c01750f" 
+            onImportComplete={fetchData} 
+          />
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Yeni İşlem Ekle
+          </button>
+        </div>
       </div>
 
       {/* Arama & Filtreleme Barı */}
-      <div className="bg-slate-900/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center shadow-lg">
+      <div className="bg-slate-900/85 backdrop-blur-sm p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row gap-4 justify-between items-center shadow-lg">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -219,6 +282,41 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      {/* TOPLU İŞLEM BARı (Sadece seçim yapıldığında aktif olur) */}
+      {selectedIds.length > 0 && (
+        <div className="bg-indigo-950/60 border border-indigo-500/30 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl animate-fadeIn">
+          <div className="text-sm font-medium text-indigo-200 flex items-center gap-2">
+            <span className="bg-indigo-600 text-white px-2.5 py-0.5 rounded-full text-xs font-bold">
+              {selectedIds.length}
+            </span>
+            işlem seçildi
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <select
+              value={targetCategory}
+              onChange={(e) => setTargetCategory(e.target.value)}
+              className="px-3.5 py-2 text-sm bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-indigo-500 transition-all flex-1 sm:w-64"
+            >
+              <option value="">Hedef Kategori Seç...</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleBulkCategoryUpdate}
+              disabled={isUpdating || !targetCategory}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-sm rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-lg shadow-indigo-600/20"
+            >
+              {isUpdating ? "Güncelleniyor..." : "Kategoriyi Uygula"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tablo Konteyneri */}
       <div className="bg-slate-900/80 backdrop-blur-sm rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
         {loading ? (
@@ -232,6 +330,19 @@ export default function TransactionsPage() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-medium">
+                  <th className="p-4 w-12 text-center">
+                    <button 
+                      onClick={toggleSelectAll}
+                      className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                      title="Tümünü Seç / Kaldır"
+                    >
+                      {filteredTransactions.length > 0 && selectedIds.length === filteredTransactions.length ? (
+                        <CheckSquare className="w-4 h-4 text-indigo-400" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="p-4">İşlem</th>
                   <th className="p-4">Açıklama / Kategori</th>
                   <th className="p-4">Hesap</th>
@@ -244,9 +355,26 @@ export default function TransactionsPage() {
                 {filteredTransactions.map((tx) => {
                   const isExpense = tx.type === "EXPENSE";
                   const isIncome = tx.type === "INCOME";
+                  const isSelected = selectedIds.includes(tx.id);
 
                   return (
-                    <tr key={tx.id} className="hover:bg-slate-800/40 transition-colors">
+                    <tr 
+                      key={tx.id} 
+                      className={`transition-colors ${isSelected ? "bg-indigo-950/20" : "hover:bg-slate-800/40"}`}
+                    >
+                      <td className="p-4 text-center">
+                        <button 
+                          onClick={() => toggleSelect(tx.id)}
+                          className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-600" />
+                          )}
+                        </button>
+                      </td>
+
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div
@@ -343,7 +471,6 @@ export default function TransactionsPage() {
         initialTab="EXPENSE"
         transactionToEdit={editingTransaction}
       />
-      <CsvImportButton accountId="2242c863-6fa0-4027-b62d-61665c01750f" />
     </div>
   );
 }

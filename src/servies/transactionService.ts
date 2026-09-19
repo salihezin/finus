@@ -78,3 +78,34 @@ export async function importVakifBankCSV(csvText: string, accountId: string): Pr
     return { success: false, count: 0, error: err.message || "Bilinmeyen bir hata oluştu." };
   }
 }
+
+/**
+ * Birden fazla işlemi toplu olarak günceller (örn: Toplu kategori atama)
+ */
+export async function bulkUpdateTransactions(
+  ids: string[],
+  updates: { category_id?: string; type?: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!ids || ids.length === 0) {
+      return { success: false, error: "Güncellenecek işlem seçilmedi." };
+    }
+
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from("transactions")
+      .update(updates)
+      .in("id", ids); // Supabase in() filtresi ile birden fazla ID'yi aynı anda günceller
+
+    if (error) {
+      console.error("Toplu güncelleme hatası:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Toplu güncelleme sırasında beklenmeyen hata:", err);
+    return { success: false, error: err.message || "Bilinmeyen bir hata oluştu." };
+  }
+}
