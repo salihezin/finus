@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Users, Plus, Trash2, Edit2, Phone, FileText, X } from "lucide-react";
+import { Users, Plus, Trash2, Edit2, Wallet, X } from "lucide-react";
 
 interface Person {
   id: string;
   name: string;
-  phone: string | null;
-  notes: string | null;
+  balance: number;
   created_at: string;
 }
 
@@ -23,8 +22,7 @@ export default function PersonsPage() {
 
   // Form State'leri
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [notes, setNotes] = useState("");
+  const [balance, setBalance] = useState("");
 
   useEffect(() => {
     fetchPersons();
@@ -51,13 +49,11 @@ export default function PersonsPage() {
     if (person) {
       setEditingPerson(person);
       setName(person.name);
-      setPhone(person.phone || "");
-      setNotes(person.notes || "");
+      setBalance(person.balance.toString());
     } else {
       setEditingPerson(null);
       setName("");
-      setPhone("");
-      setNotes("");
+      setBalance("0");
     }
     setIsModalOpen(true);
   };
@@ -66,12 +62,14 @@ export default function PersonsPage() {
     e.preventDefault();
     if (!name.trim()) return;
 
+    const numericBalance = parseFloat(balance) || 0;
+
     try {
       if (editingPerson) {
         // Güncelleme
         const { error } = await supabase
           .from("persons")
-          .update({ name, phone: phone || null, notes: notes || null })
+          .update({ name, balance: numericBalance })
           .eq("id", editingPerson.id);
 
         if (error) throw error;
@@ -79,7 +77,7 @@ export default function PersonsPage() {
         // Yeni Ekleme
         const { error } = await supabase
           .from("persons")
-          .insert([{ name, phone: phone || null, notes: notes || null }]);
+          .insert([{ name, balance: numericBalance }]);
 
         if (error) throw error;
       }
@@ -112,7 +110,7 @@ export default function PersonsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Kişiler</h1>
           <p className="text-sm text-slate-400">
-            Borç, alacak veya ilişkide olduğunuz kişileri yönetin.
+            Borç, alacak veya ilişkide olduğunuz kişileri ve bakiyelerini yönetin.
           </p>
         </div>
 
@@ -139,61 +137,66 @@ export default function PersonsPage() {
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-medium">
                   <th className="p-4">Ad Soyad</th>
-                  <th className="p-4">Telefon</th>
-                  <th className="p-4">Notlar</th>
+                  <th className="p-4">Bakiye</th>
+                  <th className="p-4">Kayıt Tarihi</th>
                   <th className="p-4 text-center">Aksiyonlar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {persons.map((person) => (
-                  <tr
-                    key={person.id}
-                    className="hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="p-4 font-semibold text-slate-200">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 font-bold text-xs">
-                          {person.name.substring(0, 2).toUpperCase()}
+                {persons.map((person) => {
+                  const bakiye = Number(person.balance);
+                  return (
+                    <tr
+                      key={person.id}
+                      className="hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="p-4 font-semibold text-slate-200">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 font-bold text-xs">
+                            {person.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          {person.name}
                         </div>
-                        {person.name}
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="p-4 text-slate-300">
-                      {person.phone ? (
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <Phone className="w-3.5 h-3.5 text-slate-500" />
-                          {person.phone}
+                      <td className={`p-4 font-bold ${
+                        bakiye > 0 
+                          ? "text-emerald-400" 
+                          : bakiye < 0 
+                          ? "text-rose-400" 
+                          : "text-slate-300"
+                      }`}>
+                        <div className="flex items-center gap-1.5">
+                          <Wallet className="w-3.5 h-3.5 opacity-60" />
+                          {bakiye.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
                         </div>
-                      ) : (
-                        <span className="text-slate-600">-</span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="p-4 text-slate-400 max-w-xs truncate">
-                      {person.notes || <span className="text-slate-600">-</span>}
-                    </td>
+                      <td className="p-4 text-slate-400 text-xs">
+                        {new Date(person.created_at).toLocaleDateString("tr-TR")}
+                      </td>
 
-                    <td className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleOpenModal(person)}
-                          className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all cursor-pointer"
-                          title="Düzenle"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(person.id)}
-                          className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
-                          title="Sil"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handleOpenModal(person)}
+                            className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all cursor-pointer"
+                            title="Düzenle"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(person.id)}
+                            className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -233,27 +236,15 @@ export default function PersonsPage() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  Telefon (İsteğe bağlı)
+                  Bakiye (₺)
                 </label>
                 <input
-                  type="text"
-                  placeholder="0532..."
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  Notlar (İsteğe bağlı)
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Kişi hakkında notlar..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 text-sm resize-none"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={balance}
+                  onChange={(e) => setBalance(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 text-sm font-semibold"
                 />
               </div>
 
