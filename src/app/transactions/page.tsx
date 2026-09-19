@@ -15,6 +15,7 @@ import {
   Plus
 } from "lucide-react";
 import { AddTransactionModal } from "@/components/modals/add-transaction-modal";
+import CsvImportButton from "./components/CsvImportButton";
 
 interface Transaction {
   id: string;
@@ -169,6 +170,13 @@ export default function TransactionsPage() {
           </p>
         </div>
 
+        <button
+          onClick={handleOpenAddModal}
+          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          CSV Ekle
+        </button>
         <button
           onClick={handleOpenAddModal}
           className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
@@ -342,6 +350,7 @@ export default function TransactionsPage() {
         initialTab="EXPENSE"
         transactionToEdit={editingTransaction}
       />
+      <CsvImportButton accountId={selectedAccount} />
     </div>
   );
 }
