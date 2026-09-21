@@ -7,12 +7,30 @@ import {
   ArrowDownRight, 
   CreditCard, 
   Plus, 
-  ArrowLeftRight 
+  ArrowLeftRight,
+  ReceiptText
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { AddTransactionModal } from '@/components/modals/add-transaction-modal';
 import { Account, Transaction } from '@/types/database';
 import { AddAccountModal } from '@/components/modals/add-account-modal';
+
+interface MonthlyExpenseTransaction {
+  amount: number;
+  category: { name: string } | { name: string }[] | null;
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const toDateString = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+  return {
+    start: toDateString(new Date(now.getFullYear(), now.getMonth(), 1)),
+    end: toDateString(new Date(now.getFullYear(), now.getMonth() + 1, 1)),
+    label: new Intl.DateTimeFormat('tr-TR', { month: 'long' }).format(now),
+  };
+}
 
 export default function DashboardPage() {
   const supabase = createClient();
@@ -24,12 +42,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpenseTransaction[]>([]);
+  const [monthlyExpensesError, setMonthlyExpensesError] = useState(false);
 
   // Verileri Supabase'den Çek
   const fetchDashboardData = async () => {
     setLoading(true);
 
-    const [accountsRes, transactionsRes] = await Promise.all([
+    const { start, end } = getCurrentMonthRange();
+    setMonthlyExpensesError(false);
+
+    const [accountsRes, transactionsRes, monthlyExpensesRes] = await Promise.all([
       supabase.from('accounts').select('*').order('name'),
       supabase.from('transactions')
         .select(`
@@ -38,11 +61,22 @@ export default function DashboardPage() {
           category:categories(name)
         `)
         .order('date', { ascending: false })
-        .limit(10)
+        .limit(10),
+      supabase.from('transactions')
+        .select('amount, category:categories(name)')
+        .eq('type', 'EXPENSE')
+        .gte('date', start)
+        .lt('date', end)
     ]);
 
     if (accountsRes.data) setAccounts(accountsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data);
+    if (monthlyExpensesRes.error) {
+      console.error('Aylık gider özeti yüklenirken hata:', monthlyExpensesRes.error);
+      setMonthlyExpensesError(true);
+    } else {
+      setMonthlyExpenses((monthlyExpensesRes.data ?? []) as MonthlyExpenseTransaction[]);
+    }
 
     setLoading(false);
   };
@@ -58,6 +92,17 @@ export default function DashboardPage() {
 
   // Hesaplamalar
   const totalBalance = accounts.reduce((acc, curr) => acc + Number(curr.balance || 0), 0);
+  const monthlyExpensesByCategory = monthlyExpenses.reduce<Record<string, number>>((summary, transaction) => {
+    const category = Array.isArray(transaction.category) ? transaction.category[0] : transaction.category;
+    const categoryName = category?.name || 'Kategorisiz';
+    summary[categoryName] = (summary[categoryName] || 0) + Number(transaction.amount || 0);
+    return summary;
+  }, {});
+  const monthlyExpenseCategories = Object.entries(monthlyExpensesByCategory)
+    .map(([name, amount]) => ({ name, amount }))
+    .sort((first, second) => second.amount - first.amount);
+  const monthlyExpenseTotal = monthlyExpenseCategories.reduce((total, category) => total + category.amount, 0);
+  const currentMonthLabel = getCurrentMonthRange().label;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -121,6 +166,55 @@ export default function DashboardPage() {
           <p className="text-3xl font-extrabold text-white">{loading ? '...' : transactions.length}</p>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl sm:p-6">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-rose-500/10 p-2.5 text-rose-400">
+              <ReceiptText className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Bu ayki harcamalar</h2>
+              <p className="text-sm text-slate-400">{currentMonthLabel} ayındaki giderleriniz kategoriye göre.</p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 sm:text-right">
+            <p className="text-xs font-medium text-rose-300">Toplam harcama</p>
+            <p className="text-lg font-bold text-rose-400">
+              {loading ? '...' : `₺${monthlyExpenseTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-slate-500">Aylık harcamalar yükleniyor...</p>
+        ) : monthlyExpensesError ? (
+          <p className="text-sm text-rose-300">Aylık harcama özeti yüklenemedi. Lütfen tekrar deneyin.</p>
+        ) : monthlyExpenseCategories.length === 0 ? (
+          <p className="text-sm text-slate-500">Bu ay için kaydedilmiş gider bulunmuyor.</p>
+        ) : (
+          <div className="space-y-4">
+            {monthlyExpenseCategories.map((category) => {
+              const percentage = monthlyExpenseTotal > 0 ? (category.amount / monthlyExpenseTotal) * 100 : 0;
+
+              return (
+                <div key={category.name}>
+                  <div className="mb-1.5 flex items-baseline justify-between gap-4">
+                    <span className="min-w-0 truncate text-sm font-medium text-slate-200">{category.name}</span>
+                    <span className="shrink-0 text-sm font-semibold text-white">
+                      ₺{category.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      <span className="ml-1.5 text-xs font-medium text-slate-500">%{percentage.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}</span>
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div className="h-full rounded-full bg-rose-500 transition-[width]" style={{ width: `${percentage}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {/* İKİLİ IZGARA: HESAPLAR VE SON İŞLEMLER */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
