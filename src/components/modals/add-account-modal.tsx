@@ -63,11 +63,11 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
 };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm animate-in fade-in duration-200 sm:p-4">
+      <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         
         {/* HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4 sm:px-6">
           <h3 className="text-lg font-bold text-white">Yeni Hesap / Kart Ekle</h3>
           <button
             onClick={onClose}
@@ -78,7 +78,7 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
         </div>
 
         {/* FORM */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-6">
           
           {/* HESAP ADI */}
           <div>
@@ -109,8 +109,8 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
           </div>
 
           {/* BAŞLANGIÇ BAKİYESİ VE PARA BİRİMİ */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-400 mb-1">
                 {type === 'CREDIT_CARD' ? 'Mevcut Borç (Gerekirse)' : 'Başlangıç Bakiyesi'}
               </label>
@@ -140,7 +140,7 @@ export function AddAccountModal({ isOpen, onClose, onSuccess }: AddAccountModalP
 
           {/* KREDİ KARTI ÖZEL ALANLARI */}
           {type === 'CREDIT_CARD' && (
-            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800/60">
+            <div className="grid gap-3 border-t border-slate-800/60 pt-1 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Kart Limiti (₺)</label>
                 <input

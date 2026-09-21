@@ -24,8 +24,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 h-screen shrink-0 flex flex-col justify-between p-4 border-r border-slate-800">
-      <div className="space-y-8">
+    <>
+      <aside className="hidden h-screen w-64 shrink-0 flex-col justify-between border-r border-slate-800 bg-slate-900 p-4 text-slate-300 md:flex">
+        <div className="space-y-8">
         {/* Logo Header */}
         <div className="flex items-center gap-3 px-3 pt-2">
           <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
@@ -74,6 +75,29 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+      </aside>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-800 bg-slate-900/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur md:hidden">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? 'page' : undefined}
+              className={clsx(
+                'flex min-w-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-medium transition-colors',
+                isActive ? 'text-indigo-400' : 'text-slate-400'
+              )}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="w-full truncate text-center">{item.name.replace('Hesaplar & Kartlar', 'Hesaplar')}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </>
   );
 }

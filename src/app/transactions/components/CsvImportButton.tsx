@@ -59,8 +59,8 @@ export default function CsvImportButton({ accountId, onImportComplete }: CsvImpo
   };
 
   return (
-    <div className="inline-block">
-      <label className={`cursor-pointer inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+    <div className="inline-block w-full sm:w-auto">
+      <label className={`cursor-pointer inline-flex w-full items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors sm:w-auto ${
         isLoading 
           ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
           : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"

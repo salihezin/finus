@@ -60,7 +60,7 @@ export default function DashboardPage() {
   const totalBalance = accounts.reduce((acc, curr) => acc + Number(curr.balance || 0), 0);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* BAŞLIK VE HIZLI AKSİYONLAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -68,10 +68,10 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-400">Aile bütçesinin anlık durumu ve güncel bakiyeler.</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <button 
             onClick={() => openModal('TRANSFER')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700/80 text-slate-200 text-sm font-medium rounded-xl border border-slate-700/50 transition-all cursor-pointer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition-all hover:bg-slate-700/80 sm:flex-none sm:justify-start"
           >
             <ArrowLeftRight className="w-4 h-4 text-indigo-400" />
             <span>Virman / Kart Öde</span>
@@ -79,7 +79,7 @@ export default function DashboardPage() {
           
           <button 
             onClick={() => openModal('EXPENSE')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-500 sm:flex-none sm:justify-start"
           >
             <Plus className="w-4 h-4" />
             <span>Harcama / Gelir Ekle</span>
@@ -144,12 +144,12 @@ export default function DashboardPage() {
               <p className="text-xs text-slate-500">Henüz eklenmiş bir hesap yok.</p>
             ) : (
               accounts.map((acc) => (
-                <div key={acc.id} className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950 border border-slate-800/60">
-                  <div>
+                <div key={acc.id} className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800/60">
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-200">{acc.name}</p>
                     <p className="text-xs text-slate-500">{acc.type}</p>
                   </div>
-                  <span className="text-sm font-bold text-white">
+                  <span className="shrink-0 text-sm font-bold text-white">
                     ₺{Number(acc.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -168,7 +168,7 @@ export default function DashboardPage() {
             ) : transactions.length === 0 ? (
               <p className="text-xs text-slate-500">Henüz kaydedilmiş işlem bulunmuyor.</p>
             ) : (
-              <table className="w-full text-left text-sm">
+              <table className="min-w-[580px] w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-800 text-xs font-semibold text-slate-400">
                     <th className="pb-3">Tarih</th>

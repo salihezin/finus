@@ -220,7 +220,7 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 text-slate-100">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 text-slate-100 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -230,7 +230,7 @@ export default function TransactionsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <CsvImportButton 
             accountId="2242c863-6fa0-4027-b62d-61665c01750f" 
             onImportComplete={fetchData} 
@@ -343,7 +343,7 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+            <table className="min-w-[850px] w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-medium">
                   <th className="p-4 w-12 text-center">

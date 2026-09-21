@@ -133,7 +133,7 @@ export default function PersonsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 text-slate-100">
+    <div className="mx-auto max-w-7xl space-y-6 text-slate-100">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -145,7 +145,7 @@ export default function PersonsPage() {
 
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/35 transition-all cursor-pointer"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/35 transition-all hover:bg-indigo-500 sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           Yeni Kişi Ekle
@@ -162,7 +162,7 @@ export default function PersonsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+            <table className="min-w-[700px] w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-medium">
                   <th className="p-4">Ad Soyad</th>
@@ -251,8 +251,8 @@ export default function PersonsPage() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 text-slate-100 shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
             <div className="flex items-center justify-between p-5 border-b border-slate-800">
               <h2 className="text-lg font-bold text-white">
                 {editingPerson ? "Kişiyi Düzenle" : "Yeni Kişi Ekle"}
