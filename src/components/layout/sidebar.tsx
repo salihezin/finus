@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -11,6 +11,7 @@ import {
   PiggyBank 
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { createClient } from '@/lib/supabase/client';
 
 const navItems = [
   { name: 'Ana Sayfa', href: '/', icon: LayoutDashboard },
@@ -22,6 +23,13 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await createClient().auth.signOut();
+    router.replace('/login');
+    router.refresh();
+  };
 
   return (
     <>
@@ -74,6 +82,13 @@ export function Sidebar() {
             <p className="text-[10px] text-slate-400 truncate">Ortak Bütçe</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="mt-3 w-full rounded-lg px-2 py-2 text-left text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100"
+        >
+          Çıkış yap
+        </button>
       </div>
       </aside>
 

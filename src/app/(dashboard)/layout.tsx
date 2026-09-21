@@ -1,11 +1,17 @@
-export default function DashboardLayout({
+import { Sidebar } from '@/components/layout/sidebar';
+import { requireAuthenticatedUser } from '@/lib/supabase/auth';
+
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAuthenticatedUser();
+
   return (
-    <div className="min-h-full bg-slate-950 text-slate-100">
-      <main>
+    <div className="flex min-h-screen w-full bg-slate-950 md:h-screen md:overflow-hidden">
+      <Sidebar />
+      <main className="min-w-0 flex-1 overflow-y-auto bg-slate-950 pb-24 md:pb-0">
         <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
           {children}
         </div>
