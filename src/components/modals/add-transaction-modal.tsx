@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { X, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, User } from "lucide-react";
-import { Transaction } from "@/types/database";
+import { X, ArrowUpRight, ArrowDownLeft, ArrowLeftRight } from "lucide-react";
 
 interface Account {
   id: string;
@@ -22,12 +21,44 @@ interface Person {
   name: string;
 }
 
+interface EditableTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  account_id: string;
+  target_account_id?: string | null;
+  to_account_id?: string | null;
+  category_id?: string | null;
+  person_id?: string | null;
+  description?: string | null;
+  date?: string | null;
+}
+
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   initialTab?: "EXPENSE" | "INCOME" | "TRANSFER" | "DEBT";
-  transactionToEdit?: any;
+  transactionToEdit?: EditableTransaction | null;
+}
+
+function addBalanceChange(changes: Map<string, number>, accountId: string | null | undefined, amount: number) {
+  if (!accountId || amount === 0) return;
+  changes.set(accountId, (changes.get(accountId) || 0) + amount);
+}
+
+function addTransactionBalanceEffect(changes: Map<string, number>, transaction: EditableTransaction, multiplier: number) {
+  const amount = Number(transaction.amount) * multiplier;
+  const targetAccountId = transaction.target_account_id ?? transaction.to_account_id;
+
+  if (transaction.type === "EXPENSE") {
+    addBalanceChange(changes, transaction.account_id, -amount);
+  } else if (transaction.type === "INCOME") {
+    addBalanceChange(changes, transaction.account_id, amount);
+  } else if (transaction.type === "TRANSFER") {
+    addBalanceChange(changes, transaction.account_id, -amount);
+    addBalanceChange(changes, targetAccountId, amount);
+  }
 }
 
 export function AddTransactionModal({
@@ -66,7 +97,7 @@ export function AddTransactionModal({
         setActiveTab(transactionToEdit.type || "EXPENSE");
         setAmount(transactionToEdit.amount?.toString() || "");
         setAccountId(transactionToEdit.account_id || "");
-        setToAccountId(transactionToEdit.target_account_id || "");
+        setToAccountId(transactionToEdit.target_account_id ?? transactionToEdit.to_account_id ?? "");
         setCategoryId(transactionToEdit.category_id || "");
         setPersonId(transactionToEdit.person_id || "");
         setDescription(transactionToEdit.description || "");
@@ -96,7 +127,7 @@ export function AddTransactionModal({
 
       if (accRes.data) {
         setAccounts(accRes.data);
-        if (accRes.data.length > 0) {
+        if (!transactionToEdit && accRes.data.length > 0) {
           setAccountId(accRes.data[0].id);
           if (accRes.data.length > 1) {
             setToAccountId(accRes.data[1].id);
@@ -119,6 +150,40 @@ export function AddTransactionModal({
   if (!isOpen) return null;
 
   const filteredCategories = categories.filter((c) => c.type === activeTab);
+
+  const applyBalanceChanges = async (changes: Map<string, number>) => {
+    const adjustments = Array.from(changes.entries()).filter(([, amount]) => amount !== 0);
+    if (adjustments.length === 0) return;
+
+    const accountIds = adjustments.map(([accountId]) => accountId);
+    const { data: accountsToUpdate, error: accountsError } = await supabase
+      .from("accounts")
+      .select("id, balance")
+      .in("id", accountIds);
+
+    if (accountsError) throw accountsError;
+    if (!accountsToUpdate || accountsToUpdate.length !== accountIds.length) {
+      throw new Error("Güncellenecek hesaplardan biri bulunamadı.");
+    }
+
+    const adjustmentByAccountId = new Map(adjustments);
+    const results = await Promise.all(
+      accountsToUpdate.map(async (account) => {
+        const newBalance = Number(account.balance) + (adjustmentByAccountId.get(account.id) || 0);
+        return supabase
+          .from("accounts")
+          .update({ balance: newBalance })
+          .eq("id", account.id)
+          .select("id");
+      })
+    );
+
+    const updateError = results.find((result) => result.error)?.error;
+    if (updateError) throw updateError;
+    if (results.some((result) => !result.data || result.data.length !== 1)) {
+      throw new Error("Hesap bakiyesi güncellenemedi.");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,21 +208,40 @@ export function AddTransactionModal({
 
     try {
       if (transactionToEdit && transactionToEdit.id) {
-        // 1. GÜNCELLEME İŞLEMİ (UPDATE)
+        const updatedTransaction: EditableTransaction = {
+          id: transactionToEdit.id,
+          type: activeTab,
+          amount: numericAmount,
+          account_id: accountId,
+          target_account_id: activeTab === "TRANSFER" ? toAccountId || null : null,
+        };
+        const balanceChanges = new Map<string, number>();
+
+        // Eski işlemin etkisini geri alır, yeni işlemin etkisini uygular.
+        addTransactionBalanceEffect(balanceChanges, transactionToEdit, -1);
+        addTransactionBalanceEffect(balanceChanges, updatedTransaction, 1);
+
+        await applyBalanceChanges(balanceChanges);
+
         const { error } = await supabase
           .from("transactions")
           .update({
             type: activeTab,
-            amount: Number(amount),
+            amount: numericAmount,
             description: description || null,
-            date: date,
+            date,
             account_id: accountId,
             category_id: categoryId || null,
-            target_account_id: toAccountId || null,
+            target_account_id: updatedTransaction.target_account_id,
           })
           .eq("id", transactionToEdit.id);
 
-        if (error) throw error;
+        if (error) {
+          const rollbackChanges = new Map<string, number>();
+          balanceChanges.forEach((change, accountId) => rollbackChanges.set(accountId, -change));
+          await applyBalanceChanges(rollbackChanges);
+          throw error;
+        }
       } else {
         // 2. YENİ EKLEME İŞLEMİ (INSERT)
         const { error } = await supabase
@@ -179,9 +263,10 @@ export function AddTransactionModal({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Kayıt sırasında hata:", err);
-      alert("İşlem başarısız: " + (err.message || "Bilinmeyen hata"));
+      const message = err instanceof Error ? err.message : "Bilinmeyen hata";
+      alert("İşlem başarısız: " + message);
     } finally {
       setLoading(false);
     }

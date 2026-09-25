@@ -28,7 +28,7 @@ interface Transaction {
   date: string;
   account_id: string;
   category_id: string | null;
-  to_account_id?: string | null;
+  target_account_id?: string | null;
   accounts?: { name: string } | null;
   categories?: { name: string } | null;
 }
@@ -182,20 +182,20 @@ export default function TransactionsPage() {
         newBalance += Number(tx.amount);
       } else if (tx.type === "INCOME") {
         newBalance -= Number(tx.amount);
-      } else if (tx.type === "TRANSFER" && tx.to_account_id) {
+      } else if (tx.type === "TRANSFER" && tx.target_account_id) {
         newBalance += Number(tx.amount);
         
         const { data: toAccData } = await supabase
           .from("accounts")
           .select("balance")
-          .eq("id", tx.to_account_id)
+          .eq("id", tx.target_account_id)
           .single();
         
         if (toAccData) {
           await supabase
             .from("accounts")
             .update({ balance: Number(toAccData.balance) - Number(tx.amount) })
-            .eq("id", tx.to_account_id);
+            .eq("id", tx.target_account_id);
         }
       }
 
